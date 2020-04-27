@@ -1,14 +1,5 @@
 import { Observable } from 'rxjs';
 
-// const observable = Observable.create // static function does the same as new Observable.
-
-/**
- * the constructor takes a function suscriber that receives a subscriber.
- * this subscriber is an object that handles 3 callbacks (next, error and complete).
- * next can be called several times until complete gets called.
- * after the complete callback gets called next and error won't be call anymore
- * the error callback is called at most 1 time on completion.
- */
 const observable = new Observable((subscriber) => {
   subscriber.next('Hello');
   subscriber.next('Wrold');
@@ -17,14 +8,24 @@ const observable = new Observable((subscriber) => {
   subscriber.next('Wrold');
 });
 
+/**
+ * if we do not supply any of the callbacks,
+ * still work fine they will just be ignored.
+ */
 const observer = {
   next: (value) => console.log('next', value),
-  error: (error) => console.log('error', error),
-  complete: () => console.log('complete!'),
 };
 
-/**
- * in order to hook up an observer to an observable
- * beginning an observable execution you must subscribe.
- */
-observable.subscribe(observer);
+// we can also not pass an observer to the subscribe function
+// observable.subscribe();
+
+// observable.subscribe(observer);
+
+// we can pass the functions directly,
+// 1st arg next function, 2nd error and 3rd complete.
+observable.subscribe(
+  (value) => console.log('next', value),
+  // (error) => console.log('next', error),
+  null, // if we don't want to pass an callback function for the argument.
+  () => console.log('complete!')
+);
