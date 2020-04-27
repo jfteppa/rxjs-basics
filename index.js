@@ -1,4 +1,4 @@
-import { of, rage, range } from 'rxjs';
+import { of, range } from 'rxjs';
 
 const observer = {
   next: (val) => console.log('next', val),
