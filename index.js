@@ -4,28 +4,34 @@ const observable = new Observable((subscriber) => {
   subscriber.next('Hello');
   subscriber.next('Wrold');
   subscriber.complete();
-  subscriber.next('Hello');
-  subscriber.next('Wrold');
 });
 
-/**
- * if we do not supply any of the callbacks,
- * still work fine they will just be ignored.
- */
 const observer = {
   next: (value) => console.log('next', value),
+  error: (error) => console.log('next', error),
+  complete: () => console.log('complete!!!'),
 };
 
-// we can also not pass an observer to the subscribe function
-// observable.subscribe();
+// synchronously
+console.log('before');
+observable.subscribe(observer);
+console.log('after');
 
-// observable.subscribe(observer);
+// asynchronously
+const observable2 = new Observable((subscriber) => {
+  let count = 0;
 
-// we can pass the functions directly,
-// 1st arg next function, 2nd error and 3rd complete.
-observable.subscribe(
-  (value) => console.log('next', value),
-  // (error) => console.log('next', error),
-  null, // if we don't want to pass an callback function for the argument.
-  () => console.log('complete!')
-);
+  const id = setInterval(() => {
+    subscriber.next(count);
+    subscriber.complete();
+    count += 1;
+  }, 1000);
+
+  // we can return a function when the observable completes.
+  return () => {
+    console.log('calling clearInterval');
+    clearInterval(id);
+  };
+});
+
+observable2.subscribe(observer);
