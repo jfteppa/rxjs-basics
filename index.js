@@ -1,54 +1,24 @@
-import { Observable } from 'rxjs';
+import { fromEvent } from 'rxjs';
+
+const source$ = fromEvent(document, 'click');
 
 const observer = {
-  next: (value) => console.log('next', value),
-  error: (error) => console.log('next', error),
-  complete: () => console.log('complete!!!'),
+  next: (val) => {
+    console.log('next', val);
+  },
+  error: (val) => {
+    console.log('error', error);
+  },
+  complete: (val) => {
+    console.log('complete');
+  },
 };
 
-const observable = new Observable((subscriber) => {
-  let count = 0;
-
-  const id = setInterval(() => {
-    subscriber.next(count);
-    count += 1;
-  }, 1000);
-
-  return () => {
-    console.log('id', id);
-    console.log('calling clearInterval');
-    clearInterval(id);
-  };
-});
-
-const subscription = observable.subscribe(observer);
-
-/* setTimeout(() => {
-  subscription.unsubscribe();
-}, 3500); */
-
-/**
- * Note: Calling unsubscribe will not fire your complete callback,
- * but it will call the returned function.
- */
-
-const subscription2 = observable.subscribe(observer);
-
-/*
- * Subscriptions can be added together using the add method,
- * you can then unsubscribe to multiple at the same time.
- * This is simply personal preference, unsubscribing individually
- * will produce the same result. Also, in future lessons, we will see how
- * to automate this unsubscribe process with operators.
- */
-
-subscription.add(subscription2);
+const sub1 = source$.subscribe(observer);
+const sub2 = source$.subscribe(observer);
 
 setTimeout(() => {
-  // unsubscribing individually
-  /* subscription.unsubscribe();
-  subscription2.unsubscribe(); */
-
-  // unsubscribe to multiple at the same time
-  subscription.unsubscribe();
-}, 3500);
+  console.log('unsubscribing');
+  sub1.unsubscribe();
+  // sub2 still subscribed to the click event.
+}, 3000);
