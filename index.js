@@ -1,29 +1,56 @@
-import { of, range } from 'rxjs';
+import { range, from } from 'rxjs';
+import 'regenerator-runtime/runtime';
 
 const observer = {
   next: (val) => console.log('next', val),
-  error: (val) => console.log('error', error),
-  complete: (val) => console.log('complete'),
+  error: (error) => console.log('error', error),
+  complete: () => console.log('complete'),
 };
 
 /*
- * Emits each item you provide in sequence, synchronously.
- * of literally just loops through the items and emits them,
- * there is no flattening involved. For instance, if you pass an
- * array the entire array will be emitted, not each item within
- * the array.
+ * from can turn nearly anything into an observable
+ * When from receieves an array, it loops through each item
+ * within that array, emitting them in sequence.
+ */
+//  Arrays
+const source_$ = from([1, 2, 3, 4, 5, 6]);
+const source$ = from(range(1, 6));
+source_$.subscribe(observer); // 1, 2, 3, 4, 5, 6
+source$.subscribe(observer); // 1, 2, 3, 4, 5, 6
+
+/*
+ * This works for any array like object as well, for instance,
+ * when from receieves a string (which has a length property)
+ * it will loop through emitting each character.
+ */
+// Strings
+const source2$ = from('Hello');
+// source2$.subscribe(observer); // H, e, l , l, o
+
+/*
+ * When from receieves a promise, it will call .then, emitting
+ * the response. We will see ways to make requests using an
+ * observable interface in upcoming lessons, but for now we will
+ * just use fetch.
+ */
+// Promises
+const source3$ = from(fetch('https://api.github.com/users/octocat'));
+source3$.subscribe(observer);
+// next gets the response
+
+/*
+ * When from receieves a iterator it will drop it in a do while loop,
+ * calling .next and emitting each item until there are no more items left.
  */
 
-const source$ = of(1, 2, 3, 4, 5, 6);
-const source2$ = of([1, 2], [3, 4], [5, 6]);
-const source3$ = of([1, 2, 3, 4, 5, 6]);
-const source4$ = of('hello');
-const source5$ = range(1, 6);
+// Iterators
+function* hello() {
+  yield 'Hello';
+  yield 'World';
+}
 
-console.log('proving');
-source$.subscribe(observer); // 1, 2, 3, 4, 5, 6
-// source2$.subscribe(observer); // [1, 2], [3, 4], [5, 6]
-// source3$.subscribe(observer); // // [1, 2, 3, 4, 5, 6]
-// source4$.subscribe(observer); // hello
-source5$.subscribe(observer); // 1, 2, 3, 4, 5, 6
-console.log('this is synchronous');
+const iterator = hello();
+// console.log(iterator.next().value); // Hello
+// console.log(iterator.next().value); // World
+const source4$ = from(iterator);
+// source4$.subscribe(observer);
