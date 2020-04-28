@@ -1,63 +1,53 @@
-import { of, interval } from 'rxjs';
-import { map, tap, mapTo, scan, filter } from 'rxjs/operators';
+import { of, fromEvent } from 'rxjs';
+import { take, map, first, filter } from 'rxjs/operators';
 
 const numbers$ = of(1, 2, 3, 4, 5);
 
-/*
- * tap can be used to spy on your streams, performing side effects
- * such as logging, and is particularly useful for debugging.
- * In the example below, we are spying on the value before and after
- * the map operator.
- */
+// numbers$.subscribe(console.log);
 
 /*
- * tap also accepts an observer object, if you wish to also
- * receieve notifications on complete or error. You will use this
- * far less often, but it's good to know just in case...
+ * take emits the first x values from the source,
+ * then completes. In this case, 1,2,3 will be emitted.
  */
+numbers$.pipe(take(3)).subscribe({
+  next: console.log,
+  complete: () => console.log('Complete!'),
+});
 
-numbers$
+const click$ = fromEvent(document, 'click');
+
+/* click$
   .pipe(
-    // tap((value) => console.log('before', value)),
-    tap((value) => {
-      // console.log('before', value);
-      // tap completely ignores any return value from the function you provide
-      return 100;
-    }),
-    map((value) => value * 10),
-    // tap((value) => console.log('after', value))
-    tap({
-      // next: (value) => console.log('after', value),
-      // complete: () => console.log('done!'),
-      error: (error) => {
-        // do something
-      },
-    })
+    map((value) => ({
+      x: event.clientX,
+      y: event.clientY,
+    })),
+    take(1)
   )
-  .subscribe((value) => {
-    // console.log('from next callback', value);
-  });
-
-// elem refs
-const countdown = document.getElementById('countdown');
-const message = document.getElementById('message');
-
-// streams
-/* const counter$ = interval(1000);
-
-counter$
-  .pipe(
-    // for each value emitted we map it to -1
-    mapTo(-1),
-    scan((accumulator, currentValue) => {
-      return accumulator + currentValue;
-    }, 10),
-    tap(console.log),
-    filter((value) => value >= 0)
-  )
-  .subscribe((value) => {
-    countdown.innerHTML = value;
-    if (!value) {
-      message.innerHTML = 'Liftoff!';
-    }
+  .subscribe({
+    next: console.log,
+    complete: () => console.log('Complete!'),
   }); */
+
+/*
+ * In this example, we will take the first value that matches
+ * the provided criteria before completing. While we could use
+ * a combination of filter(condition) and take(1), we can also
+ * use the first operator to fulfill the same use case.
+ * If you supply no values to first, it is equivalent to take(1).
+ */
+
+click$
+  .pipe(
+    map((value) => ({
+      x: event.clientX,
+      y: event.clientY,
+    })),
+    // filter(({ y }) => y > 200), // filters everything to be y > 200
+    // take(1) // takes 1 and completes
+    first(({ y }) => y > 200) // filter and take in 1 operator
+  )
+  .subscribe({
+    next: console.log,
+    complete: () => console.log('Complete!'),
+  });
