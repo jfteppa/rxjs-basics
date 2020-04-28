@@ -29,7 +29,7 @@ const counter$ = interval(1000);
  * with this new example it completes wen it takes 10 numbers
  */
 
-const test$ = interval(1000)
+counter$
   .pipe(
     mapTo(-1),
     scan((a, c) => {
