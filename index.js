@@ -1,62 +1,59 @@
-import { fromEvent, interval } from 'rxjs';
-import { scan, map, mapTo, takeWhile, tap } from 'rxjs/operators';
+import { interval, fromEvent } from 'rxjs';
+import { scan, mapTo, takeWhile, takeUntil, tap } from 'rxjs/operators';
 
-/**
- * BEGIN FIRST SECTION OF LESSON
+/*
+ * CODE FOR FOR FIRST SECTION OF LESSON
  */
+const counter$ = interval(1000);
 const click$ = fromEvent(document, 'click');
 
 /*
- * takeWhile emits values as long as they pass
- * the provided condition. As soon as the predicate
- * returns false, takeWhile completes the observable.
- * You can also pass an optional second parameter of true
- * if you want takeWhile to emit the value that caused
- * your condition to return false, before completing.
+ * takeUntil lets you complete a stream based
+ * on when another stream emits a value. For instance,
+ * in this example our counter will run until the click$
+ * stream emits a value, at which point the observable
+ * will be completed.
  */
-
-/* click$
-  .pipe(
-    map((value) => ({
-      x: event.clientX,
-      y: event.clientY,
-    })),
-    // takes until condition is met and DOES NOT RETURN VALUE MEETING CONDITION
-    // takeWhile(({ y }) => y <= 200)
-    // RETURNS VALUE WHEN CONDITION IS MET
-    takeWhile(({ y }) => y <= 200, true)
-  )
-  .subscribe({
+counter$.pipe(
+  // it takes another observable
+  takeUntil(click$)
+);
+/* .subscribe({
     next: console.log,
-    complete: () => console.log('Complete!'),
+    complete: () =>
+      console.log(`click event emitted next and completes 
+      this observer with the takeUntil`),
   }); */
 
-/**
+/*
  * BEGIN SECOND SECTION OF LESSON
  */
 
 // elem refs
 const countdown = document.getElementById('countdown');
 const message = document.getElementById('message');
+const abortButton = document.getElementById('abort');
+const resetButton = document.getElementById('reset');
 
 // streams
-const counter$ = interval(1000);
+const interval$ = interval(1000);
+const abortButton$ = fromEvent(abortButton, 'click');
 
-counter$
+interval$
   .pipe(
     mapTo(-1),
     scan((accumulator, current) => {
       return accumulator + current;
     }, 10),
-    // proving the interval stops
-    tap(console.log),
+    takeWhile((value) => value >= 0),
     /*
-     * Instead of filter let's use takeWhile. This will
-     * complete the observable and clean up the interval
-     * once the countdown goes below zero, rather than
-     * just preventing the numbers from being emitted.
+     * When you want to complete a stream based on another
+     * stream you can use takeUntil. In this case, whenever
+     * our button click stream emits the observable will
+     * complete, letting us stop the countdown before
+     * it reaches zero.
      */
-    takeWhile((value) => value >= 0)
+    takeUntil(abortButton$)
   )
   .subscribe({
     next: (value) => {
@@ -65,5 +62,5 @@ counter$
         message.innerHTML = 'Liftoff!';
       }
     },
-    complete: () => console.log('Complete!'),
+    complete: () => console.log(`vale < 0 or Abort button clicked`),
   });
