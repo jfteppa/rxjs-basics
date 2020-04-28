@@ -1,36 +1,50 @@
-import { from, interval } from 'rxjs';
-import { reduce, scan, map, pluck } from 'rxjs/operators';
+import { interval } from 'rxjs';
+import { scan, mapTo, filter, take } from 'rxjs/operators';
 
-const numbers = [1, 2, 3, 4, 5];
+// elem refs
+const countdown = document.getElementById('countdown');
+const message = document.getElementById('message');
 
-from(numbers)
-  .pipe(reduce((accumulator, currentValue) => accumulator + currentValue))
-  .subscribe(console.log);
+// streams
+const counter$ = interval(1000);
 
-/*
- * scan is similar to reduce, except it emits each new acculumated
- * value as it occurs. This is great for managing state changes
- * in your application over time.
+/* counter$
+  .pipe(
+    // for each value emitted we map it to -1
+    mapTo(-1),
+    scan((accumulator, currentValue) => {
+      return accumulator + currentValue;
+    }, 10),
+    filter((value) => value >= 0)
+  )
+  .subscribe((value) => {
+    countdown.innerHTML = value;
+    if (!value) {
+      message.innerHTML = 'Liftoff!';
+    }
+  }); */
+
+/**
+ * with the example from above the interval never stops
+ * with this new example it completes wen it takes 10 numbers
  */
-from(numbers)
-  .pipe(scan((accumulator, currentValue) => accumulator + currentValue))
-  .subscribe(console.log);
 
-const user = [
-  { name: 'Brian', loggedIn: false, token: null },
-  { name: 'Brian', loggedIn: true, token: 'abc' },
-  { name: 'Brian', loggedIn: true, token: '123' },
-];
-
-const state$ = from(user).pipe(
-  scan((accumulator, currentValue) => {
-    return { ...accumulator, ...currentValue };
-  }, {})
-);
-
-const names$ = state$.pipe(map((state) => state.name));
-names$.subscribe(console.log);
-
-// same but less code.
-const names2$ = state$.pipe(pluck('name'));
-names2$.subscribe(console.log);
+const test$ = interval(1000)
+  .pipe(
+    mapTo(-1),
+    scan((a, c) => {
+      console.log({ a, c });
+      return a + c;
+    }, 10),
+    take(10)
+  )
+  .subscribe({
+    next: (value) => {
+      console.log(value);
+      countdown.innerHTML = value;
+    },
+    complete: () => {
+      console.log('complete');
+      message.innerHTML = 'Liftoff!';
+    },
+  });
