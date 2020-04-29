@@ -1,66 +1,68 @@
-import { fromEvent } from 'rxjs';
+import { fromEvent, interval } from 'rxjs';
 import { ajax } from 'rxjs/ajax';
-import { debounceTime, map, mergeAll, mergeMap } from 'rxjs/operators';
+import { mergeMap, catchError, takeUntil, map } from 'rxjs/operators';
 
-//elems
-const textInput = document.getElementById('text-input');
+/*
+ * BEGIN FIRST SECTION
+ */
+const click$ = fromEvent(document, 'click');
+const interval$ = interval(1000);
 
-// streams
-const input$ = fromEvent(textInput, 'keyup');
+// click$.pipe(
+/*
+ * mergeMap invokes the function you provide,
+ * subscribing to each returned observable internally.
+ * Any values emitted by these inner observables
+ * are then emitted by mergeMap. By default there
+ * is no limit to the number of active inner
+ * subscriptions that can be active at a time
+ * with mergeMap, so if you continually click on
+ * the page more and more timers will be activated.
+ * This can be dangerous if you have long
+ * running inner observables and forget to clean
+ * them up.
+ */
+//   mergeMap(() => interval$)
+// ).subscribe(console.log);
 
-input$
+/*
+ * BEGIN SECOND SECTION
+ */
+const mousedown$ = fromEvent(document, 'mousedown');
+const mouseup$ = fromEvent(document, 'mouseup');
+
+mousedown$
   .pipe(
-    debounceTime(500),
-    map((e) => e.target.value)
-  )
-  .subscribe(console.log); // it prints just a string
-
-input$
-  .pipe(
-    debounceTime(500),
-    map((event) => {
-      const value = event.target.value;
-      return ajax.getJSON(`
-      https://api.github.com/users/${value}`);
-    })
-  )
-
-  /**
-   * it does not log a response from the network request,
-   * it logs the ajax observable
-   */
-  // .subscribe(console.log);
-
-  // we know we are receiving an observable
-  .subscribe((obs) => {
-    obs.subscribe(console.log); // we log the response
-    /**
-     * but in order to filter some data we will need to add pipe
-     * we will be in a callback hell loop situation, nested subscriptions
-     * obs.pipe(...).subscribe((obs2) => { obs.subscribe(...) })
+    /*
+     * In this case, we are mapping to a new interval
+     * observable on mousedown, but we are limiting it's
+     * lifetime by using the takeUntil operator with
+     * the mouseup$ stream.
      */
-  });
-
-input$
-  .pipe(
-    debounceTime(500),
-    map((event) => {
-      const value = event.target.value;
-      return ajax.getJSON(`
-      https://api.github.com/users/${value}`);
-    }),
-    mergeAll()
+    mergeMap(() => interval$.pipe(takeUntil(mouseup$)))
   )
-  .subscribe(console.log); // it logs the network request response
+  .subscribe(console.log);
 
-input$
-  .pipe(
-    debounceTime(500),
-    // mergeAll and map in 1 operator
-    mergeMap((event) => {
-      const value = event.target.value;
-      return ajax.getJSON(`
-      https://api.github.com/users/${value}`);
-    })
+/*
+ * BEGIN THIRD SECTION
+ */
+const coordinates$ = click$.pipe(
+  map((event) => ({
+    x: event.clientX,
+    y: event.clientY,
+  }))
+);
+
+const coordinatesWithSave$ = coordinates$.pipe(
+  /*
+   * mergeMap is good for 'fire and forget' save request
+   * you do not want to be cancelled. For instance, in this
+   * example we are emulating a save of coordinates
+   * anytime the user clicks on the page.
+   */
+  mergeMap((coords) =>
+    ajax.post('https://www.mocky.io/v2/5185415ba171ea3a00704eed', coords)
   )
-  .subscribe(console.log); // it logs the network request response
+);
+
+coordinatesWithSave$.subscribe(console.log);
