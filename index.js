@@ -1,66 +1,66 @@
-import { interval, fromEvent } from 'rxjs';
-import { scan, mapTo, takeWhile, takeUntil, tap } from 'rxjs/operators';
+import { of, from } from 'rxjs';
+import {
+  distinctUntilChanged,
+  distinctUntilKeyChanged,
+  scan,
+  map,
+} from 'rxjs/operators';
+
+const numbers$ = of(1, '1', 1, 2, 3, 3, 3, 4, 5, 3);
+
+// numbers$.subscribe(console.log);
 
 /*
- * CODE FOR FOR FIRST SECTION OF LESSON
+ * distinctUntilChanged emits unique values based
+ * on a === comparison to the last emitted value.
  */
-const counter$ = interval(1000);
-const click$ = fromEvent(document, 'click');
 
-/*
- * takeUntil lets you complete a stream based
- * on when another stream emits a value. For instance,
- * in this example our counter will run until the click$
- * stream emits a value, at which point the observable
- * will be completed.
- */
-counter$.pipe(
-  // it takes another observable
-  takeUntil(click$)
+numbers$.pipe(distinctUntilChanged()).subscribe(console.log);
+// 1, '1', 1, 2, 3, 4, 5, 3
+// remember ===
+
+const user = [
+  { name: 'Brian', loggedIn: false, token: null },
+  { name: 'Brian', loggedIn: true, token: 'abc' },
+  { name: 'Brian', loggedIn: true, token: '123' },
+];
+
+const state$ = from(user).pipe(
+  scan((accumulator, currentValue) => {
+    return { ...accumulator, ...currentValue };
+  }, {})
 );
-/* .subscribe({
-    next: console.log,
-    complete: () =>
-      console.log(`click event emitted next and completes 
-      this observer with the takeUntil`),
-  }); */
 
 /*
- * BEGIN SECOND SECTION OF LESSON
+ * If comparing based on a property you can use
+ * the distinctUntilKeyChanged helper operator instead.
  */
 
-// elem refs
-const countdown = document.getElementById('countdown');
-const message = document.getElementById('message');
-const abortButton = document.getElementById('abort');
-const resetButton = document.getElementById('reset');
+/*
+ * If you need to use a custom comparer, you can
+ * pass distinctUntilChanged a comparer function.
+ * ex. distinctUntilChanged((prev, curr) => {
+ *   return prev.name === curr.name;
+ * })
+ */
+const name$ = state$.pipe(
+  // without returning just the name value
+  // distinctUntilChanged(), // Brian 3 times
+  // because it is comparing object1 === object2
 
-// streams
-const interval$ = interval(1000);
-const abortButton$ = fromEvent(abortButton, 'click');
+  // first returning onnly the name value with map
+  // map((state) => state.name),
+  // distinctUntilChanged() // Brian only 1 time
 
-interval$
-  .pipe(
-    mapTo(-1),
-    scan((accumulator, current) => {
-      return accumulator + current;
-    }, 10),
-    takeWhile((value) => value >= 0),
-    /*
-     * When you want to complete a stream based on another
-     * stream you can use takeUntil. In this case, whenever
-     * our button click stream emits the observable will
-     * complete, letting us stop the countdown before
-     * it reaches zero.
-     */
-    takeUntil(abortButton$)
-  )
-  .subscribe({
-    next: (value) => {
-      countdown.innerHTML = value;
-      if (!value) {
-        message.innerHTML = 'Liftoff!';
-      }
-    },
-    complete: () => console.log(`vale < 0 or Abort button clicked`),
-  });
+  // filtering objects by key value and then just
+  /* distinctUntilChanged((previousObject, currentObject) => {
+    return previousObject.name === currentObject.name; // first Object
+  }), */
+
+  // short version of comparing prevObj and currObj by key value
+  distinctUntilKeyChanged('name'), // first Object
+
+  map((state) => state.name)
+);
+
+name$.subscribe(console.log);
