@@ -1,50 +1,71 @@
-import { fromEvent, interval } from 'rxjs';
+import { fromEvent, empty } from 'rxjs';
 import { ajax } from 'rxjs/ajax';
 import {
-  take,
-  mergeMap,
+  debounceTime,
+  pluck,
+  distinctUntilChanged,
   switchMap,
-  concatMap,
-  exhaustMap,
+  catchError,
 } from 'rxjs/operators';
 
-const interval$ = interval(1000);
-const click$ = fromEvent(document, 'click');
+const BASE_URL = 'https://api.openbrewerydb.org/breweries';
 
-// it queues the events
-const concatMapObs = click$.pipe(concatMap(() => interval$.pipe(take(3))));
-// concatMapObs.subscribe(console.log);
+//elems
+const inputBox = document.getElementById('text-input');
+const typeaheadContainer = document.getElementById('typeahead-container');
 
-// it ignores all the events until previous finishes
-const exhaustMapObs = click$.pipe(exhaustMap(() => interval$.pipe(take(3))));
-// exhaustMapObs.subscribe(console.log);
+// streams
+const input$ = fromEvent(inputBox, 'keyup');
 
-// example login, prevent multiple clicks on login until finishes
-const authenticateUser = () => {
-  return ajax.post('https://reqres.in/api/login', {
-    email: 'eve.holt@reqres.in',
-    password: 'cityslicka',
+input$
+  .pipe(
+    debounceTime(200),
+    pluck('target', 'value'),
+    distinctUntilChanged(),
+    switchMap((searchTerm) =>
+      ajax.getJSON(`${BASE_URL}?by_name=${searchTerm}`).pipe(
+        /*
+         * catchError receives the error and the
+         * observable on which the error was caught
+         * (in case you wish to retry). In this case,
+         * we are catching the error on the ajax
+         * observable returned by our switchMap
+         * function, as we don't want the entire
+         * input$ stream to be completed in the
+         * case of an error.
+         */
+        catchError((error, caught) => {
+          /*
+           * In this case, we just want to ignore
+           * any errors and hope the next request
+           * succeeds so we will just return an
+           * empty observable (completes without
+           * emitting any values).
+           *
+           * You can also use the EMPTY import,
+           * which is just a shortcut for empty().
+           * Behind the scenes empty() returns the
+           * EMPTY constant when a scheduler is not provided.
+           * ex. import { EMPTY } from 'rxjs';
+           * return EMPTY;
+           * https://github.com/ReactiveX/rxjs/blob/fc3d4264395d88887cae1df2de1b931964f3e684/src/internal/observable/empty.ts#L62-L64
+           */
+          return empty();
+        })
+      )
+    )
+
+    /**
+     * adding the catchError outsite will make our main observable to complete
+     */
+    /* catchError((error, caught) => {
+      console.log('error', error);
+      console.log('caught', caught);
+      // return error.message;
+      return empty();
+    }) */
+  )
+  .subscribe((response) => {
+    // update ui
+    typeaheadContainer.innerHTML = response.map((b) => b.name).join('<br>');
   });
-};
-
-// DOM elements
-const loginButton = document.getElementById('login');
-
-const login$ = fromEvent(loginButton, 'click');
-
-// all requests are initiated
-const mergeMapSubs = login$.pipe(mergeMap(() => authenticateUser()));
-// mergeMapSubs.subscribe(console.log);
-
-// only requests but the last one will be canceled
-const switchMapSubs = login$.pipe(switchMap(() => authenticateUser()));
-// switchMapSubs.subscribe(console.log);
-
-// all requests will be initiated in order, one after the previous is done
-const concatMapSubs = login$.pipe(concatMap(() => authenticateUser()));
-// concatMapSubs.subscribe(console.log);
-
-// the 1st request will be initiated and the other ones will be ignored
-// until the 1st one or previous is done
-const exhaustMapSubs = login$.pipe(exhaustMap(() => authenticateUser()));
-exhaustMapSubs.subscribe(console.log);
