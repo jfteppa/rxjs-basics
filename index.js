@@ -1,66 +1,46 @@
-import { of, from } from 'rxjs';
+import { fromEvent, interval } from 'rxjs';
 import {
+  debounceTime,
+  pluck,
   distinctUntilChanged,
-  distinctUntilKeyChanged,
-  scan,
+  debounce,
   map,
 } from 'rxjs/operators';
 
-const numbers$ = of(1, '1', 1, 2, 3, 3, 3, 4, 5, 3);
+//elems
+const inputBox = document.getElementById('text-input');
+const input$ = fromEvent(inputBox, 'keyup');
 
-// numbers$.subscribe(console.log);
+// streams
+const click$ = fromEvent(document, 'click');
+const keyup$ = fromEvent(inputBox, 'keyup');
 
-/*
- * distinctUntilChanged emits unique values based
- * on a === comparison to the last emitted value.
- */
+// click$.pipe(debounceTime(1000)).subscribe(console.log);
+// it logs the last click after 1 second pause
 
-numbers$.pipe(distinctUntilChanged()).subscribe(console.log);
-// 1, '1', 1, 2, 3, 4, 5, 3
-// remember ===
-
-const user = [
-  { name: 'Brian', loggedIn: false, token: null },
-  { name: 'Brian', loggedIn: true, token: 'abc' },
-  { name: 'Brian', loggedIn: true, token: '123' },
-];
-
-const state$ = from(user).pipe(
-  scan((accumulator, currentValue) => {
-    return { ...accumulator, ...currentValue };
-  }, {})
-);
+// keyup$.pipe(debounceTime(1000)).subscribe(console.log);
+// it logs the last key entered in the input after 1 second pause
 
 /*
- * If comparing based on a property you can use
- * the distinctUntilKeyChanged helper operator instead.
+ * debounceTime emits the last emitted value from the source
+ * after a pause, based on a duration you specify.
+ * For instance, in this case when the user starts typing all values
+ * will be ignored until they paused for at least 500ms,
+ * at which point the last value will be emitted.
  */
+keyup$
+  .pipe(
+    debounceTime(500),
+    // debounce(() => interval(500)),
 
-/*
- * If you need to use a custom comparer, you can
- * pass distinctUntilChanged a comparer function.
- * ex. distinctUntilChanged((prev, curr) => {
- *   return prev.name === curr.name;
- * })
- */
-const name$ = state$.pipe(
-  // without returning just the name value
-  // distinctUntilChanged(), // Brian 3 times
-  // because it is comparing object1 === object2
+    // map((event) => event.target.value),
+    pluck('target', 'value'), //short
 
-  // first returning onnly the name value with map
-  // map((state) => state.name),
-  // distinctUntilChanged() // Brian only 1 time
-
-  // filtering objects by key value and then just
-  /* distinctUntilChanged((previousObject, currentObject) => {
-    return previousObject.name === currentObject.name; // first Object
-  }), */
-
-  // short version of comparing prevObj and currObj by key value
-  distinctUntilKeyChanged('name'), // first Object
-
-  map((state) => state.name)
-);
-
-name$.subscribe(console.log);
+    /*
+     * If the user types, then backspaces quickly, the same value could
+     * be emitted twice in a row. Using distinctUntilChanged will prevent
+     * this from happening.
+     */
+    distinctUntilChanged()
+  )
+  .subscribe(console.log);
