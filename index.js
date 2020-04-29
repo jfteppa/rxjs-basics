@@ -1,26 +1,66 @@
 import { fromEvent } from 'rxjs';
-import { auditTime, map } from 'rxjs/operators';
+import { ajax } from 'rxjs/ajax';
+import { debounceTime, map, mergeAll, mergeMap } from 'rxjs/operators';
 
-const click$ = fromEvent(document, 'click');
+//elems
+const textInput = document.getElementById('text-input');
 
-click$
+// streams
+const input$ = fromEvent(textInput, 'keyup');
+
+input$
   .pipe(
-    /*
-     * auditTime will begin window when the source emits. Then,
-     * once the window passes, the last emitted value
-     * from the source will be emitted. For instance, in this
-     * example if you click a 4s timer will be started.
-     * At the end, the last click event during that window
-     * will be emitted by auditTime. This is similar to the
-     * behavior of throttleTime, if you were to pass in a config
-     * to emit the value on the trailing edge.
-     */
-    auditTime(4000),
-    /*
-     * adding mapping to stackblitz example since logging
-     * raw events is flaky
-     */
-    // @ts-ignore
-    map(({ clientX, clientY }) => ({ clientX, clientY }))
+    debounceTime(500),
+    map((e) => e.target.value)
   )
-  .subscribe(console.log);
+  .subscribe(console.log); // it prints just a string
+
+input$
+  .pipe(
+    debounceTime(500),
+    map((event) => {
+      const value = event.target.value;
+      return ajax.getJSON(`
+      https://api.github.com/users/${value}`);
+    })
+  )
+
+  /**
+   * it does not log a response from the network request,
+   * it logs the ajax observable
+   */
+  // .subscribe(console.log);
+
+  // we know we are receiving an observable
+  .subscribe((obs) => {
+    obs.subscribe(console.log); // we log the response
+    /**
+     * but in order to filter some data we will need to add pipe
+     * we will be in a callback hell loop situation, nested subscriptions
+     * obs.pipe(...).subscribe((obs2) => { obs.subscribe(...) })
+     */
+  });
+
+input$
+  .pipe(
+    debounceTime(500),
+    map((event) => {
+      const value = event.target.value;
+      return ajax.getJSON(`
+      https://api.github.com/users/${value}`);
+    }),
+    mergeAll()
+  )
+  .subscribe(console.log); // it logs the network request response
+
+input$
+  .pipe(
+    debounceTime(500),
+    // mergeAll and map in 1 operator
+    mergeMap((event) => {
+      const value = event.target.value;
+      return ajax.getJSON(`
+      https://api.github.com/users/${value}`);
+    })
+  )
+  .subscribe(console.log); // it logs the network request response
