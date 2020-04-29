@@ -1,60 +1,50 @@
-import { fromEvent, interval, of } from 'rxjs';
+import { fromEvent, interval } from 'rxjs';
 import { ajax } from 'rxjs/ajax';
-import { concatMap, catchError, take, delay, switchMap } from 'rxjs/operators';
+import {
+  take,
+  mergeMap,
+  switchMap,
+  concatMap,
+  exhaustMap,
+} from 'rxjs/operators';
 
-/*
- * BEGIN FIRST SECTION
- */
 const interval$ = interval(1000);
 const click$ = fromEvent(document, 'click');
 
-const swithMapObs = click$.pipe(switchMap(() => interval$));
-// swithMapObs.subscribe(console.log);
-
-const concatMapObs = click$.pipe(
-  /*
-   * concat based operators are the 'single file line'
-   * of operators, maintaining 1 active inner observable at
-   * a time. For instance, in this example on the first click a new
-   * interval observable will be subscribed to internally,
-   * with any emitted values being emitted by concatMap.
-   * If you click again while that inner interval
-   * is active, the next interval will be queued until
-   * the current active interval completes. At this point,
-   * the next inner observable will be activated and so on...
-   */
-  concatMap(() => interval$.pipe(take(3)))
-);
+// it queues the events
+const concatMapObs = click$.pipe(concatMap(() => interval$.pipe(take(3))));
 // concatMapObs.subscribe(console.log);
 
-/**
- * it will not start the other events until the previous is done.
- */
+// it ignores all the events until previous finishes
+const exhaustMapObs = click$.pipe(exhaustMap(() => interval$.pipe(take(3))));
+// exhaustMapObs.subscribe(console.log);
 
-/*
- * BEGIN SECOND SECTION
- */
-const saveAnswer = (answer) => {
-  // simulate delayed request
-  return of(`Saved: ${answer}`).pipe(delay(1500));
+// example login, prevent multiple clicks on login until finishes
+const authenticateUser = () => {
+  return ajax.post('https://reqres.in/api/login', {
+    email: 'eve.holt@reqres.in',
+    password: 'cityslicka',
+  });
 };
 
-// elems
-const radioButtons = document.querySelectorAll('.radio-option');
+// DOM elements
+const loginButton = document.getElementById('login');
 
-// streams
-const answerChange$ = fromEvent(radioButtons, 'click');
+const login$ = fromEvent(loginButton, 'click');
 
-answerChange$
-  .pipe(
-    /*
-     * concatMap can be useful if you need to queue
-     * requests client side. For instance, in this example
-     * we are emulating save requests on a quiz, ensuring
-     * order remains in tact by not initiating the next
-     * request until the previous completes. Be careful though,
-     * as long running inner observables could cause backups.
-     */
-    concatMap((event) => saveAnswer(event.target.value))
-  )
-  .subscribe(console.log);
+// all requests are initiated
+const mergeMapSubs = login$.pipe(mergeMap(() => authenticateUser()));
+// mergeMapSubs.subscribe(console.log);
+
+// only requests but the last one will be canceled
+const switchMapSubs = login$.pipe(switchMap(() => authenticateUser()));
+// switchMapSubs.subscribe(console.log);
+
+// all requests will be initiated in order, one after the previous is done
+const concatMapSubs = login$.pipe(concatMap(() => authenticateUser()));
+// concatMapSubs.subscribe(console.log);
+
+// the 1st request will be initiated and the other ones will be ignored
+// until the 1st one or previous is done
+const exhaustMapSubs = login$.pipe(exhaustMap(() => authenticateUser()));
+exhaustMapSubs.subscribe(console.log);
