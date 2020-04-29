@@ -1,13 +1,6 @@
-import { fromEvent, empty, interval } from 'rxjs';
+import { fromEvent, interval, of } from 'rxjs';
 import { ajax } from 'rxjs/ajax';
-import {
-  debounceTime,
-  pluck,
-  distinctUntilChanged,
-  switchMap,
-  catchError,
-  mergeMap,
-} from 'rxjs/operators';
+import { concatMap, catchError, take, delay, switchMap } from 'rxjs/operators';
 
 /*
  * BEGIN FIRST SECTION
@@ -15,59 +8,53 @@ import {
 const interval$ = interval(1000);
 const click$ = fromEvent(document, 'click');
 
-/**
- * for each click it initiates another interval and does not cancel previous
- */
-// click$.pipe(mergeMap(() => interval$)).subscribe(console.log);
+const swithMapObs = click$.pipe(switchMap(() => interval$));
+// swithMapObs.subscribe(console.log);
 
-const clickInstance = click$.pipe(
+const concatMapObs = click$.pipe(
   /*
-   * switchMap switches to a new observable on each emission
-   * from the source, cancelling any previous inner
-   * observables. For instance, if you click once a new
+   * concat based operators are the 'single file line'
+   * of operators, maintaining 1 active inner observable at
+   * a time. For instance, in this example on the first click a new
    * interval observable will be subscribed to internally,
-   * with it's values emitted. When you click again,
-   * that observable will be completed, and the next
-   * interval will be subscribed to, restarting
-   * the count. This will happen on each emission from
-   * the click$ observable.
+   * with any emitted values being emitted by concatMap.
+   * If you click again while that inner interval
+   * is active, the next interval will be queued until
+   * the current active interval completes. At this point,
+   * the next inner observable will be activated and so on...
    */
-  switchMap(() => interval$)
+  concatMap(() => interval$.pipe(take(3)))
 );
+// concatMapObs.subscribe(console.log);
 
-// clickInstance.subscribe(console.log);
+/**
+ * it will not start the other events until the previous is done.
+ */
 
 /*
  * BEGIN SECOND SECTION
  */
-const BASE_URL = 'https://api.openbrewerydb.org/breweries';
+const saveAnswer = (answer) => {
+  // simulate delayed request
+  return of(`Saved: ${answer}`).pipe(delay(1500));
+};
 
-//elems
-const inputBox = document.getElementById('text-input');
-const typeaheadContainer = document.getElementById('typeahead-container');
+// elems
+const radioButtons = document.querySelectorAll('.radio-option');
 
 // streams
-const input$ = fromEvent(inputBox, 'keyup');
+const answerChange$ = fromEvent(radioButtons, 'click');
 
-input$
+answerChange$
   .pipe(
-    // to test, comment out the debounceTime and go to the network tab
-    debounceTime(200),
-    pluck('target', 'value'),
-    distinctUntilChanged(),
-    // mergeMap((searchTerm) => ajax.getJSON(`${BASE_URL}?by_name=${searchTerm}`))
     /*
-     * switchMap is perfect for GET requests, as you do
-     * not normally care about the previous request
-     * to the same URL if another has fired. For instance,
-     * in this example if the user continues typing
-     * and the previuos request has not returned,
-     * switchMap will go ahead and cancel it and only
-     * the current request will be considered.
+     * concatMap can be useful if you need to queue
+     * requests client side. For instance, in this example
+     * we are emulating save requests on a quiz, ensuring
+     * order remains in tact by not initiating the next
+     * request until the previous completes. Be careful though,
+     * as long running inner observables could cause backups.
      */
-    switchMap((searchTerm) => ajax.getJSON(`${BASE_URL}?by_name=${searchTerm}`))
+    concatMap((event) => saveAnswer(event.target.value))
   )
-  .subscribe((response) => {
-    // update ui
-    typeaheadContainer.innerHTML = response.map((b) => b.name).join('<br>');
-  });
+  .subscribe(console.log);
