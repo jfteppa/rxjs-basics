@@ -1,55 +1,88 @@
-import { interval, empty, concat } from 'rxjs';
-import { take, concat as _concat, startWith, delay } from 'rxjs/operators';
-
-const interval$ = interval(1000);
-const delayed$ = empty().pipe(delay(1000));
-
-/*
- * concat subscribes to each observable in order,
- * subscribing to the next as the previous completes.
- * Like concatMap, you can think of concat based
- * operators as a single file line.
- */
-
-const concat$ = concat(interval$.pipe(take(3)), interval$.pipe(take(2)));
-concat$.subscribe(console.log);
+import { interval, fromEvent, of, merge, empty } from 'rxjs';
+import {
+  scan,
+  mapTo,
+  takeWhile,
+  takeUntil,
+  tap,
+  startWith,
+  switchMap,
+} from 'rxjs/operators';
 
 /*
- * There is also a pipeable operator version that can
- * be used to add observables to a pre-existing stream
- * on completion. This version is used far less than
- * static version, but is available if needed.
+ * CODE FOR FOR FIRST SECTION OF LESSON
  */
+const keyup$ = fromEvent(document, 'keyup');
+const click$ = fromEvent(document, 'click');
+
+// keyup$.subscribe(console.log);
+// click$.subscribe(console.log);
 
 /*
- * On top of ordering requests, like we saw in the
- * concatMap lesson, concat can also be used for some
- * interesting UI scenarios such as ordering
- * messaging or animations.
+ * merge subscribes to all provided streams on subscription,
+ * emitting any values emitted by these streams.
  */
+merge(keyup$, click$).subscribe(console.log);
 
-delayed$
+/*
+ * BEGIN SECOND SECTION OF LESSON
+ */
+// elem refs
+const countdown = document.getElementById('countdown');
+const message = document.getElementById('message');
+const pauseButton = document.getElementById('pause');
+const startButton = document.getElementById('start');
+
+// streams
+const counter$ = interval(1000);
+const pauseClick$ = fromEvent(pauseButton, 'click');
+const startClick$ = fromEvent(startButton, 'click');
+
+const COUNTDOWN_FROM = 10;
+
+/*
+ * With merge, we can combine the start and pause
+ * streams, taking relevant action below depending
+ * on which stream emits a value.
+ */
+merge(
+  // mapping any emitted values (click event object) to true/false
+  startClick$.pipe(mapTo(true)),
+  pauseClick$.pipe(mapTo(false))
+)
   .pipe(
     /*
-     * Note: I am using alias here because we are also
-     * using the concat creation operator on this page.
+     * Depending on whether start or pause was clicked,
+     * we'll either switch to the interval observable,
+     * or to an empty observable which will act as a pause.
      */
-    _concat(
-      delayed$.pipe(startWith('3...')),
-      delayed$.pipe(startWith('2...')),
-      delayed$.pipe(startWith('1...')),
-      delayed$.pipe(startWith('Go!'))
-    ),
-    startWith('Get Ready!')
-  )
-  .subscribe(console.log);
+    switchMap((shouldStart) => {
+      return shouldStart ? counter$ : empty();
+    }),
+    /**
+     * mapping any emitted/receiving values to -1,
+     * this case the counter values (0, 1, 2, ...)
+     * the empty observable will pause the counter
+     */
+    mapTo(-1),
+    /**
+     * for each value received we sacn it
+     * and we do a reduce function starting with a inital value of COUNTDOWN_FROM
+     */
+    scan((accumulator, current) => {
+      return accumulator + current;
+    }, COUNTDOWN_FROM),
 
-concat(
-  delayed$,
-  delayed$.pipe(startWith('3...')),
-  delayed$.pipe(startWith('2...')),
-  delayed$.pipe(startWith('1...')),
-  delayed$.pipe(startWith('Go!'))
-)
-  .pipe(startWith('Get Ready!'))
-  .subscribe(console.log);
+    takeWhile((value) => value >= 0),
+    /**
+     * we start the value not with (10 - 1)
+     * but with 10 and then it gets the value from scan
+     */
+    startWith(COUNTDOWN_FROM)
+  )
+  .subscribe((value) => {
+    countdown.innerHTML = value;
+    if (!value) {
+      message.innerHTML = 'Liftoff!';
+    }
+  });
