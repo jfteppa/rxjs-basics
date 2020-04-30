@@ -12,24 +12,9 @@
     </header>
     <div id="app">
       <h1>Ultimate RxJS</h1>
-      <div>
-        <p>
-          Start polling to request random
-          <a href="https://random.dog/">dog</a> images!
-        </p>
-        <p>
-          Polling Status:
-          <span id="polling-status">Stopped</span>
-        </p>
-        <button id="start">Start Polling</button>
-        <button id="stop">Stop Polling</button>
-      </div>
-      <img
-        style="max-width: 400px; max-height: 400px;"
-        id="dog"
-        src="https://random.dog/10fa025a-b04a-47d7-bfed-98747269b6c2.jpg"
-        alt="dog!"
-      />
+      <h2 id="countdown"></h2>
+      <div id="message"></div>
+      <button id="abort">Abort Mission</button>
     </div>
     <script src="index.js"></script>
   </body>
