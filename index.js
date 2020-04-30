@@ -1,65 +1,47 @@
-import { fromEvent, combineLatest, interval, merge } from 'rxjs';
-import { map, filter, withLatestFrom, take } from 'rxjs/operators';
+import { forkJoin, of } from 'rxjs';
+import { ajax } from 'rxjs/ajax';
+import { delay } from 'rxjs/operators';
 
-// streams
-const keyup$ = fromEvent(document, 'keyup');
-const click$ = fromEvent(document, 'click');
+const numbers$ = of(1, 2, 3);
+const letters$ = of('a', 'b', 'c');
 
-// merge(keyup$, click$).subscribe(console.log);
+forkJoin(numbers$, letters$).subscribe(console.log);
+// it logs [3, c]
 
-/*
- * Each time any stream provided to combineLatest
- * emits a value, the latest value from all provided
- * streams will be emitted as an array.
- *
- * Note that all provided streams must emit at least one value
- * before combineLatest will emit any values.
- */
-// combineLatest(keyup$, click$).subscribe(console.log);
+forkJoin(numbers$, letters$.pipe(delay(3000))).subscribe(console.log);
+// it logs [3, c] until 3 seconds
 
-// elems
-const first = document.getElementById('first');
-const second = document.getElementById('second');
+forkJoin({
+  numbers: numbers$,
+  letters: letters$.pipe(delay(3000)),
+}).subscribe(console.log);
+// it logs {numbers: 3, letters: "c" }
 
-// helpers
-const keyupAsValue = (elem) => {
-  return fromEvent(elem, 'keyup').pipe(
-    map((event) => event.target.valueAsNumber)
-  );
-};
+const GITHUB_API_BASE = 'https://api.github.com';
 
 /*
- * combineLatest is great when an element depends
- * on the combination of multiple streams to make
- * some calculation or determination. We will explore
- * this concept further in the next lab.
+ * forkJoin waits for all inner observables to complete
+ * before emitting the last emitted value of each.
+ * The use cases for forkJoin are generally similar to
+ * Promise.all
  */
-combineLatest(keyupAsValue(first), keyupAsValue(second))
-  .pipe(
-    filter(([first, second]) => {
-      return !isNaN(first) && !isNaN(second);
-    }),
-    map(([first, second]) => first + second)
-  )
-  .subscribe(console.log);
+forkJoin({
+  user: ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex`),
+  repo: ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex/repos`),
+}).subscribe(console.log);
 
 /*
- * When you want to augment one stream with
- * information from a second stream on emitted values,
- * withLatestFrom is a perfect choice.
+ * You can also pass in comma seperated arugments and
+ * receieve an array in return. This is the only option if
+ * you are using less than RxJS 6.5
  */
 
-/**
- * this one will emit only when you click
- * with the latest value from both
- */
-click$
-  .pipe(withLatestFrom(interval(1000).pipe(take(10))))
-  .subscribe(console.log);
-
-/**
- * this one will emit when you click and also
- * will emit for each value from the interval
- * with the latest value from both
- */
-combineLatest(click$, interval(1000).pipe(take(10))).subscribe(console.log);
+//  by index, position 0 we call it user, position 2 will be repos
+forkJoin(
+  ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex`),
+  ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex/repos`)
+).subscribe(([user, repos]) => {
+  // perform action
+  console.log(user);
+  console.log(repos);
+});
