@@ -1,88 +1,65 @@
-import { interval, fromEvent, of, merge, empty } from 'rxjs';
-import {
-  scan,
-  mapTo,
-  takeWhile,
-  takeUntil,
-  tap,
-  startWith,
-  switchMap,
-} from 'rxjs/operators';
+import { fromEvent, combineLatest, interval, merge } from 'rxjs';
+import { map, filter, withLatestFrom, take } from 'rxjs/operators';
 
-/*
- * CODE FOR FOR FIRST SECTION OF LESSON
- */
+// streams
 const keyup$ = fromEvent(document, 'keyup');
 const click$ = fromEvent(document, 'click');
 
-// keyup$.subscribe(console.log);
-// click$.subscribe(console.log);
+// merge(keyup$, click$).subscribe(console.log);
 
 /*
- * merge subscribes to all provided streams on subscription,
- * emitting any values emitted by these streams.
+ * Each time any stream provided to combineLatest
+ * emits a value, the latest value from all provided
+ * streams will be emitted as an array.
+ *
+ * Note that all provided streams must emit at least one value
+ * before combineLatest will emit any values.
  */
-merge(keyup$, click$).subscribe(console.log);
+// combineLatest(keyup$, click$).subscribe(console.log);
+
+// elems
+const first = document.getElementById('first');
+const second = document.getElementById('second');
+
+// helpers
+const keyupAsValue = (elem) => {
+  return fromEvent(elem, 'keyup').pipe(
+    map((event) => event.target.valueAsNumber)
+  );
+};
 
 /*
- * BEGIN SECOND SECTION OF LESSON
+ * combineLatest is great when an element depends
+ * on the combination of multiple streams to make
+ * some calculation or determination. We will explore
+ * this concept further in the next lab.
  */
-// elem refs
-const countdown = document.getElementById('countdown');
-const message = document.getElementById('message');
-const pauseButton = document.getElementById('pause');
-const startButton = document.getElementById('start');
-
-// streams
-const counter$ = interval(1000);
-const pauseClick$ = fromEvent(pauseButton, 'click');
-const startClick$ = fromEvent(startButton, 'click');
-
-const COUNTDOWN_FROM = 10;
-
-/*
- * With merge, we can combine the start and pause
- * streams, taking relevant action below depending
- * on which stream emits a value.
- */
-merge(
-  // mapping any emitted values (click event object) to true/false
-  startClick$.pipe(mapTo(true)),
-  pauseClick$.pipe(mapTo(false))
-)
+combineLatest(keyupAsValue(first), keyupAsValue(second))
   .pipe(
-    /*
-     * Depending on whether start or pause was clicked,
-     * we'll either switch to the interval observable,
-     * or to an empty observable which will act as a pause.
-     */
-    switchMap((shouldStart) => {
-      return shouldStart ? counter$ : empty();
+    filter(([first, second]) => {
+      return !isNaN(first) && !isNaN(second);
     }),
-    /**
-     * mapping any emitted/receiving values to -1,
-     * this case the counter values (0, 1, 2, ...)
-     * the empty observable will pause the counter
-     */
-    mapTo(-1),
-    /**
-     * for each value received we sacn it
-     * and we do a reduce function starting with a inital value of COUNTDOWN_FROM
-     */
-    scan((accumulator, current) => {
-      return accumulator + current;
-    }, COUNTDOWN_FROM),
-
-    takeWhile((value) => value >= 0),
-    /**
-     * we start the value not with (10 - 1)
-     * but with 10 and then it gets the value from scan
-     */
-    startWith(COUNTDOWN_FROM)
+    map(([first, second]) => first + second)
   )
-  .subscribe((value) => {
-    countdown.innerHTML = value;
-    if (!value) {
-      message.innerHTML = 'Liftoff!';
-    }
-  });
+  .subscribe(console.log);
+
+/*
+ * When you want to augment one stream with
+ * information from a second stream on emitted values,
+ * withLatestFrom is a perfect choice.
+ */
+
+/**
+ * this one will emit only when you click
+ * with the latest value from both
+ */
+click$
+  .pipe(withLatestFrom(interval(1000).pipe(take(10))))
+  .subscribe(console.log);
+
+/**
+ * this one will emit when you click and also
+ * will emit for each value from the interval
+ * with the latest value from both
+ */
+combineLatest(click$, interval(1000).pipe(take(10))).subscribe(console.log);

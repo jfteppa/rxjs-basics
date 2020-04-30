@@ -106,3 +106,7 @@ body {
 #start {
   background: green;
 }
+
+.input-wrapper {
+  margin-top: 20px;
+}
