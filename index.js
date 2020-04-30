@@ -1,68 +1,55 @@
-import { interval, fromEvent, of } from 'rxjs';
-import {
-  scan,
-  mapTo,
-  takeWhile,
-  takeUntil,
-  tap,
-  startWith,
-  endWith,
-} from 'rxjs/operators';
+import { interval, empty, concat } from 'rxjs';
+import { take, concat as _concat, startWith, delay } from 'rxjs/operators';
+
+const interval$ = interval(1000);
+const delayed$ = empty().pipe(delay(1000));
 
 /*
- * CODE FOR FOR FIRST SECTION OF LESSON
+ * concat subscribes to each observable in order,
+ * subscribing to the next as the previous completes.
+ * Like concatMap, you can think of concat based
+ * operators as a single file line.
  */
-const numbers$ = of(1, 2, 3);
 
-numbers$
+const concat$ = concat(interval$.pipe(take(3)), interval$.pipe(take(2)));
+concat$.subscribe(console.log);
+
+/*
+ * There is also a pipeable operator version that can
+ * be used to add observables to a pre-existing stream
+ * on completion. This version is used far less than
+ * static version, but is available if needed.
+ */
+
+/*
+ * On top of ordering requests, like we saw in the
+ * concatMap lesson, concat can also be used for some
+ * interesting UI scenarios such as ordering
+ * messaging or animations.
+ */
+
+delayed$
   .pipe(
     /*
-     * startWith lets you seed a stream with 1:M values.
-     * On subscription, these values will be emitted
-     * immediately, followed by any future values from
-     * the source.
+     * Note: I am using alias here because we are also
+     * using the concat creation operator on this page.
      */
-    startWith('a', 'b', 'c'),
-
-    /*
-     * You can also end a stream with any number of values,
-     * emitted on completion.
-     */
-    endWith('d', 'e', 'f')
+    _concat(
+      delayed$.pipe(startWith('3...')),
+      delayed$.pipe(startWith('2...')),
+      delayed$.pipe(startWith('1...')),
+      delayed$.pipe(startWith('Go!'))
+    ),
+    startWith('Get Ready!')
   )
   .subscribe(console.log);
 
-/*
- * BEGIN SECOND SECTION OF LESSON
- */
-// elem refs
-const countdown = document.getElementById('countdown');
-const message = document.getElementById('message');
-const abortButton = document.getElementById('abort');
-
-// streams
-const counter$ = interval(1000);
-const abort$ = fromEvent(abortButton, 'click');
-
-const COUNTDOWN_FROM = 10;
-
-counter$
-  .pipe(
-    mapTo(-1),
-    scan((accumulator, current) => {
-      return accumulator + current;
-    }, COUNTDOWN_FROM),
-    takeWhile((value) => value >= 0),
-    takeUntil(abort$),
-    /*
-     * With startWith, we can seed the stream with
-     * the starting countdown value.
-     */
-    startWith(COUNTDOWN_FROM)
-  )
-  .subscribe((value) => {
-    countdown.innerHTML = value;
-    if (!value) {
-      message.innerHTML = 'Liftoff!';
-    }
-  });
+concat(
+  delayed$,
+  delayed$.pipe(startWith('3...')),
+  delayed$.pipe(startWith('2...')),
+  delayed$.pipe(startWith('1...')),
+  delayed$.pipe(startWith('Go!'))
+)
+  .pipe(startWith('Get Ready!'))
+  .subscribe(console.log);
