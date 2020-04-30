@@ -1,47 +1,79 @@
-import { forkJoin, of } from 'rxjs';
-import { ajax } from 'rxjs/ajax';
-import { delay } from 'rxjs/operators';
+import { combineLatest, fromEvent, of } from 'rxjs';
+import {
+  map,
+  filter,
+  delay,
+  mergeMap,
+  tap,
+  share,
+  debounceTime,
+  distinctUntilChanged,
+  switchMap,
+} from 'rxjs/operators';
+import { calculateMortgage } from './helpers';
 
-const numbers$ = of(1, 2, 3);
-const letters$ = of('a', 'b', 'c');
+// elems
+const loanAmount = document.getElementById('loanAmount');
+const interest = document.getElementById('interest');
+const loanLength = document.querySelectorAll('.loanLength');
+const expected = document.getElementById('expected');
 
-forkJoin(numbers$, letters$).subscribe(console.log);
-// it logs [3, c]
+// helpers
+const createInputValueStream = (elem) => {
+  return fromEvent(elem, 'input').pipe(
+    debounceTime(500),
+    map((event) => parseFloat(event.target.value)),
+    distinctUntilChanged()
+  );
+};
 
-forkJoin(numbers$, letters$.pipe(delay(3000))).subscribe(console.log);
-// it logs [3, c] until 3 seconds
+// streams
+const loanAmount$ = createInputValueStream(loanAmount);
+const interest$ = createInputValueStream(interest);
+const loanLength$ = createInputValueStream(loanLength);
 
-forkJoin({
-  numbers: numbers$,
-  letters: letters$.pipe(delay(3000)),
-}).subscribe(console.log);
-// it logs {numbers: 3, letters: "c" }
-
-const GITHUB_API_BASE = 'https://api.github.com';
+// simulating a save request
+const saveResponse = (mortageAmount) => {
+  console.log('saveResponse: ', mortageAmount);
+  return of(mortageAmount).pipe(delay(2000));
+};
 
 /*
- * forkJoin waits for all inner observables to complete
- * before emitting the last emitted value of each.
- * The use cases for forkJoin are generally similar to
- * Promise.all
+ * Combine streams of the three values needed to complete
+ * our mortgage calculation. Once all three are filled out
+ * any subsequent updates will trigger a new calculation.
  */
-forkJoin({
-  user: ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex`),
-  repo: ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex/repos`),
-}).subscribe(console.log);
+const calculation$ = combineLatest(interest$, loanAmount$, loanLength$).pipe(
+  map(([interest, loanAmount, loanLength]) => {
+    return calculateMortgage(interest, loanAmount, loanLength);
+  }),
+  // proving the stream is shared
+  // tap(console.log),
+  /*
+   *  If a field is empty, we'll just ignore the update for now
+   *  by filtering out invalid values.
+   */
+  filter((mortageAmount) => !isNaN(mortageAmount)),
+  /*
+   *  Demonstrate sharing a stream so saves won't impact
+   *  display updates. Behind the scenes this uses a Subject,
+   *  which we we learn about in the first lessons of the
+   *  Masterclass course.
+   */
+  share()
+);
 
-/*
- * You can also pass in comma seperated arugments and
- * receieve an array in return. This is the only option if
- * you are using less than RxJS 6.5
- */
-
-//  by index, position 0 we call it user, position 2 will be repos
-forkJoin(
-  ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex`),
-  ajax.getJSON(`${GITHUB_API_BASE}/users/reactivex/repos`)
-).subscribe(([user, repos]) => {
-  // perform action
-  console.log(user);
-  console.log(repos);
+calculation$.subscribe((mortageAmount) => {
+  expected.innerHTML = mortageAmount;
 });
+
+/**
+ * save the mortageAmount,
+ * we can save the data outside of the frontend calculation,
+ * so there is no delay on showing up the calculated data.
+ */
+calculation$
+  .pipe(switchMap((mortageAmount) => saveResponse(mortageAmount)))
+  .subscribe((mortageAmount) => {
+    console.log('mortageAmount info saved! ', mortageAmount);
+  });
