@@ -1,71 +1,108 @@
-import { fromEvent, empty } from 'rxjs';
+import { fromEvent, timer, empty } from 'rxjs';
 import { ajax } from 'rxjs/ajax';
 import {
-  debounceTime,
+  takeUntil,
   pluck,
-  distinctUntilChanged,
-  switchMap,
+  mergeMapTo,
+  exhaustMap,
+  tap,
+  finalize,
+  switchMapTo,
   catchError,
 } from 'rxjs/operators';
 
-const BASE_URL = 'https://api.openbrewerydb.org/breweries';
-
-//elems
-const inputBox = document.getElementById('text-input');
-const typeaheadContainer = document.getElementById('typeahead-container');
+// elems
+const startButton = document.getElementById('start');
+const stopButton = document.getElementById('stop');
+const pollingStatus = document.getElementById('polling-status');
+const dogImage = document.getElementById('dog');
 
 // streams
-const input$ = fromEvent(inputBox, 'keyup');
+const startClick$ = fromEvent(startButton, 'click');
+const stopClick$ = fromEvent(stopButton, 'click');
 
-input$
-  .pipe(
-    debounceTime(200),
-    pluck('target', 'value'),
-    distinctUntilChanged(),
-    switchMap((searchTerm) =>
-      ajax.getJSON(`${BASE_URL}?by_name=${searchTerm}`).pipe(
-        /*
-         * catchError receives the error and the
-         * observable on which the error was caught
-         * (in case you wish to retry). In this case,
-         * we are catching the error on the ajax
-         * observable returned by our switchMap
-         * function, as we don't want the entire
-         * input$ stream to be completed in the
-         * case of an error.
-         */
-        catchError((error, caught) => {
-          /*
-           * In this case, we just want to ignore
-           * any errors and hope the next request
-           * succeeds so we will just return an
-           * empty observable (completes without
-           * emitting any values).
-           *
-           * You can also use the EMPTY import,
-           * which is just a shortcut for empty().
-           * Behind the scenes empty() returns the
-           * EMPTY constant when a scheduler is not provided.
-           * ex. import { EMPTY } from 'rxjs';
-           * return EMPTY;
-           * https://github.com/ReactiveX/rxjs/blob/fc3d4264395d88887cae1df2de1b931964f3e684/src/internal/observable/empty.ts#L62-L64
-           */
-          return empty();
-        })
-      )
-    )
+const startClickObs = startClick$.pipe(
+  /*
+   * Every start click we will map to an interval which
+   * emits every 5 seconds to request a new image.
+   * Since we do not want multiple polls active at once,
+   * we'll use exhaustMap to ignore any emissions
+   * while the inner interval is running.
+   */
 
+  // updating the satus to Active
+  tap(() => {
+    console.log('updating status');
+    return (pollingStatus.innerHTML = 'Active');
+  }),
+  /**
+   * we switch from mergeMapTo to exhaustMap
+   * because the timer will never stop until the user clicks the stop button
+   * so while the event is not cancelled al the other events are ignored!
+   * no switching to the new one, no creating queues and not triggering all the clicks
+   */
+  // mergeMapTo(
+  exhaustMap(() =>
     /**
-     * adding the catchError outsite will make our main observable to complete
+     * we could use interval but since we want to trigger at click at not later
+     * we use timer instead of interval
      */
-    /* catchError((error, caught) => {
-      console.log('error', error);
-      console.log('caught', caught);
-      // return error.message;
-      return empty();
-    }) */
+    timer(0, 5000).pipe(
+      /**
+       * it is updating the value every 5 seconds until stop button is clicked
+       * we can moved this out at the beggining
+       */
+      /* 
+        tap(() => {
+          console.log('tapping');
+          return (pollingStatus.innerHTML = 'Active');
+        }), */
+      /**
+       * we use switchMapTo in case one request
+       * takes longer than 5seconds to finalize
+       * so we swtich to the new/next request
+       */
+      switchMapTo(
+        /**
+         * we make the request and
+         * use pipe to filter the value returned and
+         * to catch any errors
+         */
+        ajax.getJSON('https://random.dog/woof.json').pipe(
+          /**
+           * we just grab the object url value
+           */
+          pluck('url'),
+          /**
+           * in case of error, we catch the error
+           * and kepp the app observable running
+           */
+          catchError((error, caught) => {
+            console.log('error: ', error.message);
+            return empty();
+          })
+        )
+      ),
+      /**
+       * stops when the user clicks the stop button
+       */
+      takeUntil(stopClick$),
+      /**
+       * is triggered when the inner oberser
+       * in this case the timer is complete
+       */
+      finalize(() => {
+        console.log('stopping inner observable (timer)');
+        pollingStatus.innerHTML = 'Stopped';
+      })
+    )
   )
-  .subscribe((response) => {
-    // update ui
-    typeaheadContainer.innerHTML = response.map((b) => b.name).join('<br>');
-  });
+);
+
+startClickObs.subscribe((url) => {
+  console.log('updating image');
+  /**
+   * update the image src when we get the value
+   */
+  dogImage.src = url;
+});

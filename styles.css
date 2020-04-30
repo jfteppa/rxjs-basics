@@ -79,3 +79,20 @@ body {
   width: 0%;
   background: #ff16b7;
 }
+
+#dog {
+  margin-top: 10px;
+}
+
+#start,
+#stop {
+  color: white;
+}
+
+#start {
+  background: green;
+}
+
+#stop {
+  background: red;
+}
